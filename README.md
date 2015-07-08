@@ -19,6 +19,7 @@ Sending request would never been fun and easier than this. It comes with lots of
 * Cookie - setting cookies for your request
 * CookieJar - automatic in-memory cookiejar
 * BasicAuth - setting basic authentication header
+* Form-data - not url encode 
 * more to come..
 
 ## Installation

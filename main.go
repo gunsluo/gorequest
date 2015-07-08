@@ -12,6 +12,7 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -470,6 +471,31 @@ func changeMapToURLValues(data map[string]interface{}) url.Values {
 	return newUrlValues
 }
 
+func NoUrlEncode(v url.Values) string {
+	if v == nil {
+		return ""
+	}
+	var buf bytes.Buffer
+	keys := make([]string, 0, len(v))
+	for k := range v {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		vs := v[k]
+		prefix := k + "="
+		for _, v := range vs {
+			if buf.Len() > 0 {
+				buf.WriteByte('&')
+			}
+			buf.WriteString(prefix)
+			buf.WriteString(v)
+		}
+	}
+
+	return buf.String()
+}
+
 // End is the most important function that you need to call when ending the chain. The request won't proceed without calling it.
 // End function returns Response which matchs the structure of Response type in Golang's http package (but without Body data). The body data itself returns as a string in a 2nd return value.
 // Lastly but worht noticing, error array (NOTE: not just single error value) is returned as a 3rd value and nil otherwise.
@@ -504,7 +530,7 @@ func (s *SuperAgent) End(callback ...func(response Response, body string, errs [
 	}
 	// check if there is forced type
 	switch s.ForceType {
-	case "json", "form":
+	case "json", "form", "form-data":
 		s.TargetType = s.ForceType
 	}
 
@@ -518,6 +544,10 @@ func (s *SuperAgent) End(callback ...func(response Response, body string, errs [
 		} else if s.TargetType == "form" {
 			formData := changeMapToURLValues(s.Data)
 			req, err = http.NewRequest(s.Method, s.Url, strings.NewReader(formData.Encode()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		} else if s.TargetType == "form-data" {
+			formData := changeMapToURLValues(s.Data)
+			req, err = http.NewRequest(s.Method, s.Url, strings.NewReader(NoUrlEncode(formData)))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
 	case GET, HEAD, DELETE:
