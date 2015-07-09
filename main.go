@@ -417,6 +417,13 @@ func (s *SuperAgent) sendStruct(content interface{}) *SuperAgent {
 // Send implicitly uses SendString and you should use Send instead of this.
 func (s *SuperAgent) SendString(content string) *SuperAgent {
 	var val map[string]interface{}
+
+	var pq func(query string) (url.Values, error)
+	if s.ForceType == "form-data" {
+		pq = ParseQuery
+	} else {
+		pq = url.ParseQuery
+	}
 	// check if it is json format
 	d := json.NewDecoder(strings.NewReader(content))
 	d.UseNumber()
@@ -424,7 +431,7 @@ func (s *SuperAgent) SendString(content string) *SuperAgent {
 		for k, v := range val {
 			s.Data[k] = v
 		}
-	} else if formVal, err := url.ParseQuery(content); err == nil {
+	} else if formVal, err := pq(content); err == nil {
 		for k, _ := range formVal {
 			// make it array if already have key
 			if val, ok := s.Data[k]; ok {
@@ -494,6 +501,32 @@ func NoUrlEncode(v url.Values) string {
 	}
 
 	return buf.String()
+}
+
+func parseQuery(m url.Values, query string) (err error) {
+	for query != "" {
+		key := query
+		if i := strings.IndexAny(key, "&;"); i >= 0 {
+			key, query = key[:i], key[i+1:]
+		} else {
+			query = ""
+		}
+		if key == "" {
+			continue
+		}
+		value := ""
+		if i := strings.Index(key, "="); i >= 0 {
+			key, value = key[:i], key[i+1:]
+		}
+		m[key] = append(m[key], value)
+	}
+	return err
+}
+
+func ParseQuery(query string) (m url.Values, err error) {
+	m = make(url.Values)
+	err = parseQuery(m, query)
+	return
 }
 
 // End is the most important function that you need to call when ending the chain. The request won't proceed without calling it.
